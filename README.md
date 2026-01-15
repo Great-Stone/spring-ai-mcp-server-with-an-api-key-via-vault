@@ -359,7 +359,7 @@ graph TB
     
     subgraph VaultServer["HashiCorp Vault"]
         AppRole[AppRole: spring-boot-app<br/>role-id: demo-role-id-12345]
-        Secrets[KV Secrets Engine<br/>secret/mcp (key: api-key)]
+        Secrets["KV Secrets Engine<br/>secret/mcp<br/>key: api-key"]
     end
     
     MCPInspector -->|"1. HTTP Request<br/>X-API-KEY header"| Interceptor
