@@ -142,7 +142,9 @@ When using Docker Compose, MCP Inspector starts automatically:
 docker-compose up
 ```
 
-The MCP Inspector UI is accessible at `http://localhost:6274`. Open this URL in your browser to automatically connect to the Spring Boot MCP server.
+The MCP Inspector UI is accessible at `http://localhost:6274`. 
+
+**Note**: When using Docker Compose, the `inspector-config.json` file is generated but not automatically loaded to avoid proxy mode header issues. You need to manually connect in the UI. See the [Troubleshooting](#troubleshooting) section for details.
 
 #### Running Locally
 
@@ -637,7 +639,6 @@ secret/
 spring-ai-mcp-server-with-an-api-key-via-vault/
 ├── docker-compose.yml
 ├── Dockerfile
-├── .env.example
 ├── pom.xml
 ├── scripts/
 │   └── vault-init.sh
@@ -710,3 +711,73 @@ This project uses the following approach for API key authentication:
 - Implement periodic secret refresh to pick up changes without restart
 - Leverage Vault's dynamic secrets (e.g., database credentials) that rotate automatically
 - Use Vault's secret leasing for time-bound access
+
+## Troubleshooting
+
+### Connection Error - Proxy Token Issue
+
+If you encounter "Connection Error - Check if your MCP server is running and proxy token is correct" when using MCP Inspector:
+
+1. **Verify MCP Server is Running**:
+   ```bash
+   curl http://localhost:8080/
+   ```
+   You should see a JSON response with server information.
+
+2. **Check API Key**:
+   ```bash
+   grep MCP_API_KEY .env | cut -d= -f2
+   ```
+   Or check the `inspector-config.json` file.
+
+3. **Manual Connection in MCP Inspector UI** (Recommended):
+   
+   The `inspector-config.json` file is not automatically loaded in Docker Compose setup to avoid proxy mode header issues. Use manual connection instead:
+   
+   - Open `http://localhost:6274` in your browser
+   - In the left sidebar, manually configure the connection:
+     - **Transport Type**: "Streamable HTTP"
+     - **URL**: `http://app:8080/mcp` (correct for Docker Compose setup)
+     - **Connection Type**: "Direct" or "Via Proxy" (both should work)
+     - **Authentication**: Click to expand the Authentication section
+       - **Header Name**: `X-API-KEY`
+       - **Header Value**: Your API key from `.env` file
+         ```bash
+         grep MCP_API_KEY .env | cut -d= -f2
+         ```
+   - Click **Connect**
+
+4. **Verify Docker Containers**:
+   ```bash
+   docker-compose ps
+   ```
+   Ensure all containers are running and healthy:
+   - `vault` - Vault server (should be healthy)
+   - `spring-mcp-app` - Spring Boot application (should be healthy)
+   - `mcp-inspector` - MCP Inspector
+
+5. **Check API Key Loading from Vault**:
+   ```bash
+   docker-compose logs app | grep -i "api.*key"
+   ```
+   You should see: `API key loaded successfully from Vault. Length: 43`
+   
+   If you see errors, check Vault policy:
+   ```bash
+   docker-compose exec vault vault policy read mcp-read-policy
+   ```
+   The policy should include both `secret/data/mcp` and `secret/data/mcp/*` paths.
+
+6. **Check Container Logs**:
+   ```bash
+   docker-compose logs app
+   docker-compose logs mcp-inspector
+   ```
+   Look for any errors or connection issues.
+
+7. **Restart Services**:
+   ```bash
+   docker-compose restart app mcp-inspector
+   ```
+
+**Note**: The `inspector-config.json` file is generated but not automatically loaded in Docker Compose to avoid proxy mode header forwarding issues. Always use manual connection in the MCP Inspector UI with the API key from the `.env` file.

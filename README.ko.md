@@ -571,7 +571,6 @@ secret/
 spring-ai-mcp-server-with-an-api-key-via-vault/
 ├── docker-compose.yml
 ├── Dockerfile
-├── .env.example
 ├── pom.xml
 ├── scripts/
 │   └── vault-init.sh
@@ -644,3 +643,73 @@ spring-ai-mcp-server-with-an-api-key-via-vault/
 - 재시작 없이 변경사항을 반영하기 위한 주기적 Secret 새로고침 구현
 - 자동으로 로테이션되는 Vault의 동적 Secret(예: 데이터베이스 자격 증명) 활용
 - 시간 제한 접근을 위한 Vault의 Secret 임대 사용
+
+## 문제 해결
+
+### 연결 오류 - 프록시 토큰 문제
+
+MCP Inspector를 사용할 때 "Connection Error - Check if your MCP server is running and proxy token is correct" 오류가 발생하는 경우:
+
+1. **MCP 서버 실행 확인**:
+   ```bash
+   curl http://localhost:8080/
+   ```
+   서버 정보가 포함된 JSON 응답이 표시되어야 합니다.
+
+2. **API 키 확인**:
+   ```bash
+   grep MCP_API_KEY .env | cut -d= -f2
+   ```
+   또는 `inspector-config.json` 파일을 확인하세요.
+
+3. **MCP Inspector UI에서 수동 연결** (권장):
+   
+   `inspector-config.json` 파일은 Docker Compose 설정에서 자동으로 로드되지 않습니다 (프록시 모드 헤더 문제 방지). 수동 연결을 사용하세요:
+   
+   - 브라우저에서 `http://localhost:6274` 열기
+   - 왼쪽 사이드바에서 수동으로 연결 구성:
+     - **Transport Type**: "Streamable HTTP"
+     - **URL**: `http://app:8080/mcp` (Docker Compose 설정에 맞음)
+     - **Connection Type**: "Direct" 또는 "Via Proxy" (둘 다 작동함)
+     - **Authentication**: 클릭하여 Authentication 섹션 확장
+       - **Header Name**: `X-API-KEY`
+       - **Header Value**: `.env` 파일의 API 키
+         ```bash
+         grep MCP_API_KEY .env | cut -d= -f2
+         ```
+   - **Connect** 버튼 클릭
+
+4. **Docker 컨테이너 확인**:
+   ```bash
+   docker-compose ps
+   ```
+   모든 컨테이너가 실행 중이고 healthy 상태인지 확인:
+   - `vault` - Vault 서버 (healthy 상태여야 함)
+   - `spring-mcp-app` - Spring Boot 애플리케이션 (healthy 상태여야 함)
+   - `mcp-inspector` - MCP Inspector
+
+5. **Vault에서 API 키 로드 확인**:
+   ```bash
+   docker-compose logs app | grep -i "api.*key"
+   ```
+   다음 메시지가 표시되어야 합니다: `API key loaded successfully from Vault. Length: 43`
+   
+   오류가 보이면 Vault 정책 확인:
+   ```bash
+   docker-compose exec vault vault policy read mcp-read-policy
+   ```
+   정책에 `secret/data/mcp`와 `secret/data/mcp/*` 경로가 모두 포함되어 있어야 합니다.
+
+6. **컨테이너 로그 확인**:
+   ```bash
+   docker-compose logs app
+   docker-compose logs mcp-inspector
+   ```
+   오류나 연결 문제를 확인하세요.
+
+7. **서비스 재시작**:
+   ```bash
+   docker-compose restart app mcp-inspector
+   ```
+
+**참고**: `inspector-config.json` 파일은 생성되지만 Docker Compose에서 자동으로 로드되지 않습니다 (프록시 모드 헤더 전달 문제 방지). 항상 MCP Inspector UI에서 `.env` 파일의 API 키를 사용하여 수동으로 연결하세요.

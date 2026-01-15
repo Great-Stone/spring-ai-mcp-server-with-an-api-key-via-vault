@@ -15,6 +15,9 @@ vault secrets enable -path=secret kv-v2 2>&1 || echo "KV secrets engine already 
 vault auth enable approle 2>&1 || echo "AppRole auth method already enabled"
 POLICY_TMP=$(mktemp)
 cat > "$POLICY_TMP" <<EOF
+path "secret/data/mcp" {
+  capabilities = ["read"]
+}
 path "secret/data/mcp/*" {
   capabilities = ["read"]
 }

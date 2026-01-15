@@ -48,6 +48,12 @@ services:
     depends_on:
       vault-init:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
 
   mcp-inspector:
@@ -62,14 +68,11 @@ services:
       SERVER_PORT: "6277"
       MCP_AUTO_OPEN_ENABLED: "false"
       DANGEROUSLY_OMIT_AUTH: "true"
-    volumes:
-      - ./inspector-config.json:/app/inspector-config.json:ro
-    command: ["--config", "/app/inspector-config.json"]
     depends_on:
       vault-init:
         condition: service_completed_successfully
       app:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
