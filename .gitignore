@@ -1,0 +1,11 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+.vscode/
+*.log
+*.tmp
+*.bak
+.env
+inspector-config.json
